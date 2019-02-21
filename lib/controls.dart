@@ -1,8 +1,6 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:youtube_player/youtube_player.dart';
-import 'package:share/share.dart';
 
 typedef YoutubeQualityChangeCallback(String quality, Duration position);
 typedef ControlsShowingCallback(bool showing);
@@ -11,8 +9,7 @@ class Controls extends StatefulWidget {
   final bool showControls;
   final double width;
   final double height;
-  final String videoId;
-  final String defaultQuality;
+  final String videoUrl;
   final bool defaultCall;
   final YoutubeQualityChangeCallback qualityChangeCallback;
   final VideoPlayerController controller;
@@ -30,9 +27,8 @@ class Controls extends StatefulWidget {
     this.height,
     this.width,
     this.qualityChangeCallback,
-    this.videoId,
+    this.videoUrl,
     this.defaultCall,
-    this.defaultQuality,
     this.fullScreenCallback,
     this.controlsShowingCallback,
     this.isFullScreen = false,
@@ -48,7 +44,6 @@ class _ControlsState extends State<Controls> {
   double currentPosition = 0;
   String _currentPositionString = "00:00";
   String _remainingString = "- 00:00";
-  String _selectedQuality;
   bool _buffering = false;
   Timer _timer;
   bool _showFast = false;
@@ -57,13 +52,6 @@ class _ControlsState extends State<Controls> {
 
   @override
   void initState() {
-    if (widget.defaultQuality == '720p') {
-      _selectedQuality = 'HD';
-    } else if (widget.defaultQuality == '1080p') {
-      _selectedQuality = 'Full HD';
-    } else {
-      _selectedQuality = widget.defaultQuality.toUpperCase();
-    }
     widget.controller.addListener(() {
       if (widget.controller.value != null) {
         if (widget.controller.value.position != null &&
@@ -133,7 +121,6 @@ class _ControlsState extends State<Controls> {
                     color: Colors.transparent,
                     child: Stack(
                       children: <Widget>[
-                        _buildTopControls(),
                         Center(
                           child: _playButton(),
                         ),
@@ -310,54 +297,6 @@ class _ControlsState extends State<Controls> {
     );
   }
 
-  Widget _buildTopControls() {
-    return Positioned(
-      top: 0,
-      right: 0,
-      child: Row(
-        children: <Widget>[
-          widget.isLive
-              ? Icon(
-                  Icons.wifi_tethering,
-                  color: widget.controlsColor.seekBarPlayedColor,
-                )
-              : InkWell(
-                  onTap: () {
-                    if (widget.isFullScreen) {
-                      Scaffold.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              "Quality cannot be changed in fullscreen mode."),
-                          action: SnackBarAction(
-                            label: "Exit FullScreen Mode",
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                      );
-                    } else {
-                      _resolutionBottomSheet();
-                    }
-                  },
-                  child: Text(
-                    _selectedQuality,
-                    style: TextStyle(
-                      color: widget.controlsColor.buttonColor,
-                      fontWeight: FontWeight.w900,
-                      fontSize: widget.isFullScreen ? 22 : 16,
-                    ),
-                  ),
-                ),
-          IconButton(
-            icon: Icon(
-              Icons.share,
-              color: widget.controlsColor.buttonColor,
-            ),
-            onPressed: shareVideo,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBottomControls() {
     int totalLength = widget.controller.value.duration.inSeconds ?? 0;
@@ -454,68 +393,6 @@ class _ControlsState extends State<Controls> {
     } else {
       widget.controller.play();
     }
-  }
-
-  void shareVideo() {
-    final RenderBox box = context.findRenderObject();
-    Share.share("https://youtu.be/${widget.videoId}",
-        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size);
-  }
-
-  void _resolutionBottomSheet() {
-    Scaffold.of(context).showBottomSheet((BuildContext context) {
-      return Container(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            _qualityRow('1080p'),
-            _qualityRow('720p'),
-            _qualityRow('480p'),
-            _qualityRow('360p'),
-            _qualityRow('240p'),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _qualityRow(String quality) {
-    String currentQuality;
-    if (quality == '1080p') {
-      currentQuality = 'Full HD';
-    } else if (quality == '720p') {
-      currentQuality = 'HD';
-    } else {
-      currentQuality = quality.toUpperCase();
-    }
-    return InkWell(
-      onTap: () {
-        widget.qualityChangeCallback(
-          quality.toLowerCase(),
-          widget.controller.value.position,
-        );
-        Navigator.pop(context);
-      },
-      child: Row(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(15.0),
-            child: currentQuality == _selectedQuality
-                ? Icon(
-                    Icons.check,
-                  )
-                : Container(
-                    height: 30,
-                    width: 30,
-                  ),
-          ),
-          Text(
-            quality,
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
-    );
   }
 
   String formatDuration(Duration position) {

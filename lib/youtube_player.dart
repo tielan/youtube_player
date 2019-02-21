@@ -34,14 +34,11 @@
 
 import 'dart:io';
 import 'dart:async';
-import 'package:meta/meta.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player/controls.dart';
 
-enum YoutubeQuality { LOW, MEDIUM, HIGH, HD, FHD }
 enum YoutubePlayerMode { DEFAULT, NO_CONTROLS }
-
 final MethodChannel _channel =
     const MethodChannel('sarbagyastha.com.np/youtubePlayer')
       ..invokeMethod('init');
@@ -712,7 +709,6 @@ typedef ErrorCallback(String error);
 
 class YoutubePlayer extends StatefulWidget {
   final String source;
-  final YoutubeQuality quality;
   final BuildContext context;
   final double aspectRatio;
   final double width;
@@ -733,7 +729,6 @@ class YoutubePlayer extends StatefulWidget {
   YoutubePlayer(
       {@required this.source,
       @required this.context,
-      @required this.quality,
       this.aspectRatio = 16 / 9,
       this.width,
       this.isLive = false,
@@ -770,28 +765,20 @@ class YoutubePlayer extends StatefulWidget {
 
 class _YoutubePlayerState extends State<YoutubePlayer> {
   VideoPlayerController _videoController;
-  String videoId = "";
+  String videoUrl = "";
   bool initialize = true;
   double width;
   double height;
   bool _showControls;
-  String _selectedQuality;
   bool _showVideoProgressBar = true;
   bool _videoEndListenerCalled;
   ControlsColor controlsColor;
 
   @override
   void initState() {
-    _selectedQuality = qualityMapping(widget.quality);
     _showControls = widget.autoPlay ? false : true;
-    if (widget.source.contains("http")) {
-      videoId = getIdFromUrl(widget.source);
-    } else {
-      videoId = widget.source;
-    }
-    if (videoId != null)
-      _videoController = VideoPlayerController.network(
-          "${videoId}sarbagya${_selectedQuality}sarbagya${widget.isLive}");
+    videoUrl = widget.source;
+    _videoController = VideoPlayerController.network(videoUrl);
     if (controlsColor == null) {
       controlsColor = ControlsColor();
     } else {
@@ -844,7 +831,7 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
     if (widget.callbackController != null) {
       widget.callbackController(_videoController);
     }
-    print("Youtube Video Id: $videoId");
+    print("Youtube Video Id: $videoUrl");
   }
 
   @override
@@ -854,30 +841,13 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
     }
     width = widget.width ?? MediaQuery.of(context).size.width;
     height = 1 / widget.aspectRatio * width;
-    if (widget.source.contains("http")) {
-      if (getIdFromUrl(widget.source) != videoId) {
-        _videoController.pause();
-        videoId = getIdFromUrl(widget.source);
-        if (videoId != null) {
-          _videoController = VideoPlayerController.network(
-              "${videoId}sarbagya${_selectedQuality}sarbagya${widget.isLive}");
-          initializeYTController();
-        } else {
-          widget.onError("Malformed Video ID or URL");
-        }
-      }
-    } else {
-      if (widget.source != videoId) {
-        _videoController.pause();
-        videoId = widget.source;
-        if (videoId != null) {
-          _videoController = VideoPlayerController.network(
-              "${videoId}sarbagya${_selectedQuality}sarbagya${widget.isLive}");
-          initializeYTController();
-        }
-      }
+    if (widget.source != videoUrl) {
+      _videoController.pause();
+      videoUrl = widget.source;
+      _videoController = VideoPlayerController.network(videoUrl);
+      initializeYTController();
     }
-    if (initialize && videoId != null) {
+    if (initialize && videoUrl != null) {
       initializeYTController();
       initialize = false;
     }
@@ -899,11 +869,11 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
               duration: Duration(seconds: 1),
               height: _height,
               width: _width,
-              decoration: widget.showThumbnail && videoId != null
+              decoration: widget.showThumbnail && videoUrl != null
                   ? BoxDecoration(
                       image: DecorationImage(
                         image: NetworkImage(
-                            "https://i3.ytimg.com/vi/$videoId/sddefault.jpg"),
+                            ""),
                         fit: BoxFit.cover,
                       ),
                     )
@@ -939,8 +909,7 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
                       isLive: widget.isLive,
                       controller: _videoController,
                       showControls: _showControls,
-                      videoId: videoId,
-                      defaultQuality: _selectedQuality,
+                      videoUrl: videoUrl,
                       isFullScreen: _isFullScreen,
                       controlsActiveBackgroundOverlay:
                           widget.controlsActiveBackgroundOverlay,
@@ -952,27 +921,6 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
                               _showVideoProgressBar = !showing;
                             });
                           });
-                        }
-                      },
-                      qualityChangeCallback: (quality, position) {
-                        _videoController.pause();
-                        if (mounted) {
-                          setState(() {
-                            _selectedQuality = quality;
-                            if (videoId != null)
-                              _videoController = VideoPlayerController.network(
-                                  "${videoId}sarbagya${_selectedQuality}sarbagya${widget.isLive}");
-                          });
-                        }
-                        _videoController.initialize().then((_) {
-                          _videoController.seekTo(position);
-                          _videoController.play();
-                          if (mounted) {
-                            setState(() {});
-                          }
-                        });
-                        if (widget.callbackController != null) {
-                          widget.callbackController(_videoController);
                         }
                       },
                       fullScreenCallback: () async {
@@ -1006,45 +954,6 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
       ),
     );
   }
-
-  String qualityMapping(YoutubeQuality quality) {
-    switch (quality) {
-      case YoutubeQuality.LOW:
-        return '240p';
-      case YoutubeQuality.MEDIUM:
-        return '360p';
-      case YoutubeQuality.HIGH:
-        return '480p';
-      case YoutubeQuality.HD:
-        return '720p';
-      case YoutubeQuality.FHD:
-        return '1080p';
-      default:
-        return "Invalid Quality";
-    }
-  }
-
-  String getIdFromUrl(String url, [bool trimWhitespaces = true]) {
-    if (url == null || url.length == 0) return null;
-
-    if (trimWhitespaces) url = url.trim();
-
-    for (var exp in _regexps) {
-      Match match = exp.firstMatch(url);
-      if (match != null && match.groupCount >= 1) return match.group(1);
-    }
-
-    return null;
-  }
-
-  List<RegExp> _regexps = [
-    new RegExp(
-        r"^https:\/\/(?:www\.|m\.)?youtube\.com\/watch\?v=([_\-a-zA-Z0-9]{11}).*$"),
-    new RegExp(
-        r"^https:\/\/(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/embed\/([_\-a-zA-Z0-9]{11}).*$"),
-    new RegExp(r"^https:\/\/youtu\.be\/([_\-a-zA-Z0-9]{11}).*$")
-  ];
-
   Future<dynamic> _pushFullScreenWidget(BuildContext context) async {
     final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     final TransitionRoute<Null> route = PageRouteBuilder<Null>(

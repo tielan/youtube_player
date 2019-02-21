@@ -10,9 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  meta: ^1.1.6
-  share: ^0.6.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

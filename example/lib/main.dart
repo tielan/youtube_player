@@ -51,21 +51,18 @@ class _MyHomePageState extends State<MyHomePage> {
           children: <Widget>[
             YoutubePlayer(
               context: context,
-              source: id,
-              quality: YoutubeQuality.HD,
+              source: "https://ninghao.net/system/dynamics/video/webapp-season1-01-01-01-workflow-733751090.mp4",
               aspectRatio: 16 / 9,
               autoPlay: true,
               startFullScreen: false,
               keepScreenOn: true,
               controlsActiveBackgroundOverlay: true,
-              playerMode: YoutubePlayerMode.DEFAULT,
               callbackController: (controller) {
                 _videoController = controller;
               },
               onError: (error) {
                 print(error);
               },
-              onVideoEnded: () => _showThankYouDialog(),
             ),
             SizedBox(
               height: 10.0,
@@ -212,15 +209,4 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void _showThankYouDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Video Ended"),
-          content:  Text("Thank you for trying the plugin!"),
-        );
-      },
-    );
-  }
 }
